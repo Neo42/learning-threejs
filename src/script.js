@@ -8,6 +8,16 @@ import {
   WebGLRenderer,
   Clock,
 } from 'three'
+import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls'
+
+const cursor = {
+  x: 0,
+  y: 0,
+}
+window.addEventListener('mousemove', (e) => {
+  cursor.x = e.clientX / sizes.width - 0.5
+  cursor.y = -(e.clientY / sizes.width - 0.5)
+})
 
 const canvas = document.querySelector('.webgl')
 
@@ -27,22 +37,45 @@ const sizes = {
   width: 600,
   height: 600,
 }
-const camera = new PerspectiveCamera(55, sizes.width / sizes.height)
-camera.position.set(0, 0, 10)
+
+const aspectRatio = sizes.width / sizes.height
+// const camera = new OrthographicCamera(
+//   -aspectRatio,
+//   aspectRatio,
+//   1,
+//   -1,
+//   0.1,
+//   100
+// )
+
+const camera = new PerspectiveCamera(75, aspectRatio)
+camera.position.set(0, 0, 3)
+camera.lookAt(mesh.position)
 scene.add(camera)
+
+// controls
+const controls = new OrbitControls(camera, canvas)
+controls.enableDamping = true
+// controls.target.y = 1
+// controls.update()
 
 // renderer
 const renderer = new WebGLRenderer({canvas})
 renderer.setSize(sizes.width, sizes.height)
 
 const clock = new Clock()
+
 const tick = () => {
-  const elapsedTime = clock.getElapsedTime()
-  mesh.position.x = Math.cos(elapsedTime)
-  mesh.position.y = Math.sin(elapsedTime)
-  mesh.position.z = Math.tan(elapsedTime + Math.PI / 2) + 5
+  // update controls on each frame to keep damping after release
+  controls.update()
+  // mesh.rotation.y = clock.getElapsedTime()
+  // camera.position.set(
+  //   Math.sin(cursor.x * Math.PI * 2) * 3,
+  //   cursor.y * 5,
+  //   Math.cos(cursor.x * Math.PI * 2) * 3
+  // )
+  // camera.lookAt(mesh.position)
   renderer.render(scene, camera)
   requestAnimationFrame(tick)
 }
-
 tick()
