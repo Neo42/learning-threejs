@@ -14,9 +14,29 @@ const cursor = {
   x: 0,
   y: 0,
 }
+
 window.addEventListener('mousemove', (e) => {
   cursor.x = e.clientX / sizes.width - 0.5
   cursor.y = -(e.clientY / sizes.width - 0.5)
+})
+
+// handle double click full screen
+window.addEventListener('dblclick', () => {
+  const fullscreenElement =
+    document.fullscreenElement || document.webkitFullscreenElement
+  if (!fullscreenElement) {
+    if (canvas.requestFullscreen) {
+      canvas.requestFullscreen()
+    } else if (canvas.webkitRequestFullscreen) {
+      canvas.webkitRequestFullscreen()
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen()
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen()
+    }
+  }
 })
 
 const canvas = document.querySelector('.webgl')
@@ -34,8 +54,8 @@ scene.add(mesh)
 
 // camera
 const sizes = {
-  width: 600,
-  height: 600,
+  width: window.innerWidth,
+  height: window.innerHeight,
 }
 
 const aspectRatio = sizes.width / sizes.height
@@ -66,8 +86,17 @@ renderer.setSize(sizes.width, sizes.height)
 const clock = new Clock()
 
 const tick = () => {
+  // handle window resizing
+  sizes.width = window.innerWidth
+  sizes.height = window.innerHeight
+  camera.aspect = sizes.width / sizes.height
+  camera.updateProjectionMatrix()
+  renderer.setSize(sizes.width, sizes.height)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
   // update controls on each frame to keep damping after release
   controls.update()
+
   // mesh.rotation.y = clock.getElapsedTime()
   // camera.position.set(
   //   Math.sin(cursor.x * Math.PI * 2) * 3,
