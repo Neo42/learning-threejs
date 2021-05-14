@@ -10,6 +10,8 @@ import {
   Geometry,
   Vector3,
   Face3,
+  BufferAttribute,
+  BufferGeometry,
 } from 'three'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls'
 
@@ -47,41 +49,18 @@ const canvas = document.querySelector('.webgl')
 // scene
 const scene = new Scene()
 
-const geometry = new Geometry()
+const geometry = new BufferGeometry()
 
-// const vertex1 = new Vector3(0, 0, 0)
-// const vertex2 = new Vector3(1, 0, 0)
-// const vertex3 = new Vector3(0, 1, 0)
-// geometry.vertices.push(vertex1, vertex2, vertex3)
+const count = 500
+let positionsArray = new Float32Array(count * 3 * 3)
+positionsArray = positionsArray.map((_) => (Math.random() - 0.5) * 16)
 
-// const face = new Face3(0, 1, 2)
-// geometry.faces.push(face)
+const positionsAttribute = new BufferAttribute(positionsArray, 3)
+geometry.setAttribute('position', positionsAttribute)
 
-for (let i = 0; i < 1000; i++) {
-  for (let j = 0; j < 4; j++) {
-    geometry.vertices.push(
-      new Vector3(
-        (Math.random() - 0.5) * 5,
-        (Math.random() - 0.5) * 5,
-        (Math.random() - 0.5) * 5
-      )
-    )
-  }
-  const verticesIndex = i * 4
-  geometry.faces.push(
-    new Face3(
-      verticesIndex,
-      verticesIndex + 2,
-      verticesIndex + 3,
-      verticesIndex + 4
-    )
-  )
-}
-
-// box
 const mesh = new Mesh(
   geometry,
-  new MeshBasicMaterial({color: 'red', wireframe: true})
+  new MeshBasicMaterial({color: 'cyan', wireframe: true})
 )
 
 scene.add(mesh)
