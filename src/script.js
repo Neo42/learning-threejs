@@ -2,11 +2,14 @@ import './style.css'
 import {
   Scene,
   Mesh,
-  BoxGeometry,
   MeshBasicMaterial,
   PerspectiveCamera,
   WebGLRenderer,
   Clock,
+  AxesHelper,
+  Geometry,
+  Vector3,
+  Face3,
 } from 'three'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls'
 
@@ -44,10 +47,41 @@ const canvas = document.querySelector('.webgl')
 // scene
 const scene = new Scene()
 
+const geometry = new Geometry()
+
+// const vertex1 = new Vector3(0, 0, 0)
+// const vertex2 = new Vector3(1, 0, 0)
+// const vertex3 = new Vector3(0, 1, 0)
+// geometry.vertices.push(vertex1, vertex2, vertex3)
+
+// const face = new Face3(0, 1, 2)
+// geometry.faces.push(face)
+
+for (let i = 0; i < 1000; i++) {
+  for (let j = 0; j < 4; j++) {
+    geometry.vertices.push(
+      new Vector3(
+        (Math.random() - 0.5) * 5,
+        (Math.random() - 0.5) * 5,
+        (Math.random() - 0.5) * 5
+      )
+    )
+  }
+  const verticesIndex = i * 4
+  geometry.faces.push(
+    new Face3(
+      verticesIndex,
+      verticesIndex + 2,
+      verticesIndex + 3,
+      verticesIndex + 4
+    )
+  )
+}
+
 // box
 const mesh = new Mesh(
-  new BoxGeometry(1, 1, 1),
-  new MeshBasicMaterial({color: 'cyan'})
+  geometry,
+  new MeshBasicMaterial({color: 'red', wireframe: true})
 )
 
 scene.add(mesh)
