@@ -26,11 +26,12 @@ scene.add(mesh)
 
 // camera
 const sizes = {
-  width: 800,
-  height: 600,
+  width: 500,
+  height: 400,
 }
 const camera = new PerspectiveCamera(55, sizes.width / sizes.height)
 scene.add(camera)
+camera.position.z = 10
 
 // renderer
 const renderer = new WebGLRenderer({canvas})
