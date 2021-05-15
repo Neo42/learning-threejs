@@ -6,14 +6,19 @@ import {
   PerspectiveCamera,
   WebGLRenderer,
   Clock,
-  AxesHelper,
-  Geometry,
-  Vector3,
-  Face3,
-  BufferAttribute,
-  BufferGeometry,
+  BoxGeometry,
 } from 'three'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls'
+import * as dat from 'dat.gui'
+import gsap from 'gsap/gsap-core'
+
+const gui = new dat.GUI({closed: true})
+
+const params = {
+  color: '#ffffff',
+  spin: () =>
+    gsap.to(mesh.rotation, {y: mesh.rotation.y + 2 * Math.PI, duration: 1}),
+}
 
 const cursor = {
   x: 0,
@@ -49,21 +54,48 @@ const canvas = document.querySelector('.webgl')
 // scene
 const scene = new Scene()
 
-const geometry = new BufferGeometry()
+// box
+const geometry = new BoxGeometry(1, 1, 1, 32, 32, 32)
 
-const count = 500
-let positionsArray = new Float32Array(count * 3 * 3)
-positionsArray = positionsArray.map((_) => (Math.random() - 0.5) * 16)
-
-const positionsAttribute = new BufferAttribute(positionsArray, 3)
-geometry.setAttribute('position', positionsAttribute)
-
-const mesh = new Mesh(
-  geometry,
-  new MeshBasicMaterial({color: 'cyan', wireframe: true})
-)
-
+const material = new MeshBasicMaterial({color: params.color, wireframe: true})
+const mesh = new Mesh(geometry, material)
 scene.add(mesh)
+
+// debug ui
+gui.width = 200
+gui.add(mesh.position, 'x').min(-3).max(3).step(0.01).name('Horizontal')
+gui.add(mesh.position, 'y').min(-3).max(3).step(0.01).name('Vertical')
+gui.add(mesh.position, 'z').min(-3).max(3).step(0.01).name('Depth')
+
+gui.add(mesh.scale, 'x').min(0).max(1).step(0.01).name('Scale X')
+gui.add(mesh.scale, 'y').min(0).max(1).step(0.01).name('Scale Y')
+gui.add(mesh.scale, 'z').min(0).max(1).step(0.01).name('Scale Z')
+gui
+  .add(mesh.rotation, 'x')
+  .min(-2 * Math.PI)
+  .max(2 * Math.PI)
+  .step(0.01)
+  .name('Rotation X')
+gui
+  .add(mesh.rotation, 'y')
+  .min(-2 * Math.PI)
+  .max(2 * Math.PI)
+  .step(0.01)
+  .name('Rotation Y')
+gui
+  .add(mesh.rotation, 'z')
+  .min(-2 * Math.PI)
+  .max(2 * Math.PI)
+  .step(0.01)
+  .name('Rotation Z')
+
+gui.add(mesh.material, 'wireframe').name('Wireframe')
+gui.add(mesh, 'visible').name('Visibility')
+gui
+  .addColor(params, 'color')
+  .onChange(() => material.color.set(params.color))
+  .name('Cube Color')
+gui.add(params, 'spin').name('Spin')
 
 // camera
 const sizes = {
@@ -72,14 +104,6 @@ const sizes = {
 }
 
 const aspectRatio = sizes.width / sizes.height
-// const camera = new OrthographicCamera(
-//   -aspectRatio,
-//   aspectRatio,
-//   1,
-//   -1,
-//   0.1,
-//   100
-// )
 
 const camera = new PerspectiveCamera(75, aspectRatio)
 camera.position.set(0, 0, 3)
