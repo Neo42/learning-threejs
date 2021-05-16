@@ -1,9 +1,7 @@
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls'
 import camera from './camera'
 import canvas from './canvas'
-import params from './params'
-
-const {sizes} = params
+import {sizes} from './params'
 
 const cursor = {
   x: 0,

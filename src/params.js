@@ -1,9 +1,6 @@
-const params = {
-  color: '#ffffff',
-  sizes: {
-    width: window.innerWidth,
-    height: window.innerHeight,
-  },
+export const color = '#ffffff'
+export const sizes = {
+  width: window.innerWidth,
+  height: window.innerHeight,
 }
-
-export default params
+export const params = {color, sizes}

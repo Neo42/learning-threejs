@@ -1,9 +1,8 @@
 import {PerspectiveCamera} from 'three'
 import mesh from './mesh'
-import params from './params'
+import {sizes} from './params'
 
 // camera
-const {sizes} = params
 const aspectRatio = sizes.width / sizes.height
 
 const camera = new PerspectiveCamera(75, aspectRatio)

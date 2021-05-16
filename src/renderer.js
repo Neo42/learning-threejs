@@ -1,8 +1,6 @@
 import {WebGLRenderer} from 'three'
 import canvas from './canvas'
-import params from './params'
-
-const {sizes} = params
+import {sizes} from './params'
 
 // renderer
 const renderer = new WebGLRenderer({canvas})

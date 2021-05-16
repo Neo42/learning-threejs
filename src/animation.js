@@ -1,10 +1,8 @@
 import camera from './camera'
 import controls from './controls'
-import params from './params'
+import {sizes} from './params'
 import renderer from './renderer'
 import scene from './scene'
-
-const {sizes} = params
 
 const tick = () => {
   // handle window resizing
