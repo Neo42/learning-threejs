@@ -4,7 +4,6 @@ import {params} from './params'
 
 // debug ui
 const gui = new dat.GUI()
-
 gui.width = 200
 
 gui
