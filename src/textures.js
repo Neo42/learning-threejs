@@ -43,3 +43,5 @@ const roughnessTexture = textLoader.load('/textures/door/roughness.jpg')
 colorTexture.generateMipmaps = false
 colorTexture.minFilter = NearestFilter
 colorTexture.magFilter = NearestFilter
+
+export const matcapTexture = textLoader.load('/textures/matcaps/8.png')
