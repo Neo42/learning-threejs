@@ -1,4 +1,4 @@
-import {Mesh, MeshMatcapMaterial, Scene, TorusBufferGeometry} from 'three'
+import {Mesh, MeshMatcapMaterial, Scene, TorusGeometry} from 'three'
 import camera from './camera'
 import mesh from './mesh'
 import {matcapTexture} from './textures'
@@ -7,7 +7,7 @@ const scene = new Scene()
 // scene.add(mesh)
 scene.add(camera)
 
-const donutGeometry = new TorusBufferGeometry(0.3, 0.2, 20, 45)
+const donutGeometry = new TorusGeometry(0.3, 0.2, 20, 45)
 export const material = new MeshMatcapMaterial({matcap: matcapTexture})
 
 console.time('donuts')

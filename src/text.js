@@ -1,10 +1,10 @@
-import {FontLoader, Mesh, MeshMatcapMaterial, TextBufferGeometry} from 'three'
+import {FontLoader, Mesh, MeshMatcapMaterial, TextGeometry} from 'three'
 import scene, {material} from './scene'
 import {matcapTexture} from './textures'
 
 const fontLoader = new FontLoader()
 fontLoader.load('/fonts/helvetiker_regular.typeface.json', (font) => {
-  const textGeometry = new TextBufferGeometry('Creative Developer', {
+  const textGeometry = new TextGeometry('Dank af', {
     font,
     size: 0.5,
     height: 0.2,
