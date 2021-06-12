@@ -22,9 +22,9 @@ const parameters = {
   count: 100000,
   size: 0.01,
   radius: 5,
-  branches: 5,
-  spin: 1,
-  randomness: 0.2,
+  branches: 20,
+  spin: 5,
+  randomness: 2,
   randomnessPower: 3,
   insideColor: '#ff6030',
   outsideColor: '#1b3984',
@@ -186,7 +186,7 @@ const camera = new THREE.PerspectiveCamera(
 )
 camera.position.x = 3
 camera.position.y = 3
-camera.position.z = 3
+camera.position.z = 1
 scene.add(camera)
 
 // Controls
