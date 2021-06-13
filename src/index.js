@@ -16,141 +16,31 @@ const canvas = document.querySelector('canvas.webgl')
 const scene = new THREE.Scene()
 
 /**
- * Galaxy
+ * Objects
  */
-const parameters = {
-  count: 100000,
-  size: 0.01,
-  radius: 5,
-  branches: 5,
-  spin: 1,
-  randomness: 0.2,
-  randomnessPower: 3,
-  insideColor: '#ff6030',
-  outsideColor: '#1b3984',
-}
+const object1 = new THREE.Mesh(
+  new THREE.SphereGeometry(0.5, 16, 16),
+  new THREE.MeshBasicMaterial({color: '#ff0000'}),
+)
+object1.position.x = -2
 
-let geometry = null
-let material = null
-let points = null
-let galaxy = new THREE.Group()
+const object2 = new THREE.Mesh(
+  new THREE.SphereGeometry(0.5, 16, 16),
+  new THREE.MeshBasicMaterial({color: '#ff0000'}),
+)
 
-const generateGalaxy = () => {
-  geometry?.dispose()
-  material?.dispose()
-  scene.remove(points)
+const object3 = new THREE.Mesh(
+  new THREE.SphereGeometry(0.5, 16, 16),
+  new THREE.MeshBasicMaterial({color: '#ff0000'}),
+)
+object3.position.x = 2
 
-  const {
-    count,
-    size,
-    radius,
-    branches,
-    spin,
-    randomness,
-    randomnessPower,
-    insideColor,
-    outsideColor,
-  } = parameters
+scene.add(object1, object2, object3)
 
-  // Geometry
-  geometry = new THREE.BufferGeometry()
-  const positions = new Float32Array(count * 3)
-  const colors = new Float32Array(count * 3)
-  const color1 = new THREE.Color(insideColor)
-  const color2 = new THREE.Color(outsideColor)
-
-  for (let i = 0; i < count; i++) {
-    const i3 = i * 3
-
-    // Position
-    const length = Math.random() * radius
-    const spinAngle = length * spin
-    const branchAngle = ((i % branches) / branches) * Math.PI * 2
-
-    const randomX =
-      Math.pow(Math.random(), randomnessPower) *
-      (Math.random() < 0.5 ? 1 : -1) *
-      randomness *
-      length
-    const randomY =
-      Math.pow(Math.random(), randomnessPower) *
-      (Math.random() < 0.5 ? 1 : -1) *
-      randomness *
-      length
-    const randomZ =
-      Math.pow(Math.random(), randomnessPower) *
-      (Math.random() < 0.5 ? 1 : -1) *
-      randomness *
-      length
-
-    positions[i3] = Math.cos(branchAngle + spinAngle) * length + randomX
-    positions[i3 + 1] = randomY
-    positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * length + randomZ
-
-    // Color
-    const mixedColor = color1.clone()
-    mixedColor.lerp(color2, length / radius)
-
-    colors[i3] = mixedColor.r
-    colors[i3 + 1] = mixedColor.g
-    colors[i3 + 2] = mixedColor.b
-  }
-
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-
-  // Material
-  material = new THREE.PointsMaterial({
-    size,
-    sizeAttenuation: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    vertexColors: true,
-  })
-
-  /**
-   * Points
-   */
-  points = new THREE.Points(geometry, material)
-  scene.add(points)
-}
-
-generateGalaxy()
-
-gui
-  .add(parameters, 'count')
-  .min(100)
-  .max(1000000)
-  .step(100)
-  .onChange(generateGalaxy)
-gui
-  .add(parameters, 'size')
-  .min(0.001)
-  .max(0.1)
-  .step(0.001)
-  .onChange(generateGalaxy)
-gui
-  .add(parameters, 'radius')
-  .min(0.01)
-  .max(20)
-  .step(0.01)
-  .onChange(generateGalaxy)
-gui.add(parameters, 'branches').min(2).max(20).step(1).onChange(generateGalaxy)
-gui.add(parameters, 'spin').min(-5).max(5).step(1).onChange(generateGalaxy)
-gui
-  .add(parameters, 'randomness')
-  .min(0)
-  .max(2)
-  .step(0.001)
-  .onChange(generateGalaxy)
-gui
-  .add(parameters, 'randomnessPower')
-  .min(1)
-  .max(10)
-  .step(0.001)
-  .onChange(generateGalaxy)
-gui.addColor(parameters, 'insideColor').onChange(generateGalaxy)
-gui.addColor(parameters, 'outsideColor').onChange(generateGalaxy)
+/**
+ * Raycaster
+ */
+const raycaster = new THREE.Raycaster()
 
 /**
  * Sizes
@@ -175,6 +65,32 @@ window.addEventListener('resize', () => {
 })
 
 /**
+ * Mouse
+ */
+const mouse = new THREE.Vector2()
+
+window.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / sizes.width) * 2 - 1
+  mouse.y = 1 - (e.clientY / sizes.height) * 2
+})
+
+window.addEventListener('click', (e) => {
+  if (currentIntersect) {
+    switch (currentIntersect.object) {
+      case object1:
+        console.log('Clicked object1')
+        break
+      case object2:
+        console.log('Clicked object2')
+        break
+      case object3:
+        console.log('Clicked object3')
+        break
+    }
+  }
+})
+
+/**
  * Camera
  */
 // Base camera
@@ -184,8 +100,6 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   100,
 )
-camera.position.x = 3
-camera.position.y = 3
 camera.position.z = 3
 scene.add(camera)
 
@@ -207,12 +121,42 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
  */
 const clock = new THREE.Clock()
 
+let currentIntersect = null
+
 const tick = () => {
   const elapsedTime = clock.getElapsedTime()
 
+  // Animate Objects
+  object1.position.y = Math.sin(elapsedTime * 0.3) * 1.5
+  object2.position.y = Math.sin(elapsedTime * 0.8) * 1.5
+  object3.position.y = Math.sin(elapsedTime * 1.4) * 1.5
+
+  // Cast a ray
+  raycaster.setFromCamera(mouse, camera)
+
+  const objectToTest = [object1, object2, object3]
+  const intersects = raycaster.intersectObjects(objectToTest)
+
+  objectToTest.forEach((object) => object.material.color.set('#ff0000'))
+
+  intersects.forEach((intersect) =>
+    intersect.object.material.color.set('#0000ff'),
+  )
+
+  if (intersects.length) {
+    if (currentIntersect === null) {
+      console.log('mouse enter')
+    }
+    currentIntersect = intersects[0]
+  } else {
+    if (currentIntersect) {
+      console.log('mouse leave')
+    }
+    currentIntersect = null
+  }
+
   // Update controls
   controls.update()
-
   // Render
   renderer.render(scene, camera)
 
