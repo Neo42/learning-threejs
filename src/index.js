@@ -2,13 +2,43 @@ import './style.css'
 import * as THREE from 'three'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import * as dat from 'dat.gui'
+import * as CANNON from 'cannon-es'
+
+/**
+ * Debug
+ */
+const gui = new dat.GUI()
+const debugObject = {
+  reset() {
+    objectsToUpdate.forEach((object) => {
+      object.body.removeEventListener('collide', playHitSound)
+      world.removeBody(object.body)
+      scene.remove(object.mesh)
+    })
+  },
+  createSphere() {
+    createSphere(0.5 * Math.random(), {
+      x: (Math.random() - 0.5) * 3,
+      y: 3,
+      z: (Math.random() - 0.5) * 3,
+    })
+  },
+  createBox() {
+    createBox(Math.random(), Math.random(), Math.random(), {
+      x: (Math.random() - 0.5) * 3,
+      y: 3,
+      z: (Math.random() - 0.5) * 3,
+    })
+  },
+}
+
+gui.add(debugObject, 'createSphere')
+gui.add(debugObject, 'createBox')
+gui.add(debugObject, 'reset')
 
 /**
  * Base
  */
-// Debug
-const gui = new dat.GUI()
-
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
 
@@ -16,31 +46,95 @@ const canvas = document.querySelector('canvas.webgl')
 const scene = new THREE.Scene()
 
 /**
- * Objects
+ * Sounds
  */
-const object1 = new THREE.Mesh(
-  new THREE.SphereGeometry(0.5, 16, 16),
-  new THREE.MeshBasicMaterial({color: '#ff0000'}),
-)
-object1.position.x = -2
-
-const object2 = new THREE.Mesh(
-  new THREE.SphereGeometry(0.5, 16, 16),
-  new THREE.MeshBasicMaterial({color: '#ff0000'}),
-)
-
-const object3 = new THREE.Mesh(
-  new THREE.SphereGeometry(0.5, 16, 16),
-  new THREE.MeshBasicMaterial({color: '#ff0000'}),
-)
-object3.position.x = 2
-
-scene.add(object1, object2, object3)
+const hitSound = new Audio('/sounds/hit.mp3')
+const playHitSound = (collision) => {
+  const impactStrength = collision.contact.getImpactVelocityAlongNormal()
+  hitSound.volume = Math.abs(impactStrength / 20)
+  hitSound.currentTime = 0
+  hitSound.play()
+}
 
 /**
- * Raycaster
+ * Textures
  */
-const raycaster = new THREE.Raycaster()
+const textureLoader = new THREE.TextureLoader()
+const cubeTextureLoader = new THREE.CubeTextureLoader()
+
+const environmentMapTexture = cubeTextureLoader.load([
+  '/textures/environmentMaps/0/px.png',
+  '/textures/environmentMaps/0/nx.png',
+  '/textures/environmentMaps/0/py.png',
+  '/textures/environmentMaps/0/ny.png',
+  '/textures/environmentMaps/0/pz.png',
+  '/textures/environmentMaps/0/nz.png',
+])
+
+/**
+ * Physics
+ */
+const world = new CANNON.World()
+world.broadPhase = new CANNON.SAPBroadphase(world)
+world.allowSleep = true
+world.gravity.set(0, -9.82, 0)
+
+// Materials
+const defaultMaterial = new CANNON.Material('default')
+
+const defaultContactMaterial = new CANNON.ContactMaterial(
+  defaultMaterial,
+  defaultMaterial,
+  {
+    friction: 0.1,
+    restitution: 0.7,
+  },
+)
+world.addContactMaterial(defaultContactMaterial)
+
+world.defaultContactMaterial = defaultContactMaterial
+
+// Plane
+const floorShape = new CANNON.Plane()
+const floorBody = new CANNON.Body({
+  mass: 0,
+  shape: floorShape,
+})
+floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI * 0.5)
+world.addBody(floorBody)
+
+/**
+ * Floor
+ */
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(10, 10),
+  new THREE.MeshStandardMaterial({
+    color: '#777777',
+    metalness: 0.3,
+    roughness: 0.4,
+    envMap: environmentMapTexture,
+  }),
+)
+floor.receiveShadow = true
+floor.rotation.x = -Math.PI * 0.5
+scene.add(floor)
+
+/**
+ * Lights
+ */
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7)
+scene.add(ambientLight)
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.2)
+directionalLight.castShadow = true
+directionalLight.shadow.mapSize.set(1024, 1024)
+directionalLight.shadow.camera.far = 15
+directionalLight.shadow.camera.left = -7
+directionalLight.shadow.camera.top = 7
+directionalLight.shadow.camera.right = 7
+directionalLight.shadow.camera.bottom = -7
+directionalLight.position.set(5, 5, 5)
+scene.add(directionalLight)
 
 /**
  * Sizes
@@ -65,32 +159,6 @@ window.addEventListener('resize', () => {
 })
 
 /**
- * Mouse
- */
-const mouse = new THREE.Vector2()
-
-window.addEventListener('mousemove', (e) => {
-  mouse.x = (e.clientX / sizes.width) * 2 - 1
-  mouse.y = 1 - (e.clientY / sizes.height) * 2
-})
-
-window.addEventListener('click', (e) => {
-  if (currentIntersect) {
-    switch (currentIntersect.object) {
-      case object1:
-        console.log('Clicked object1')
-        break
-      case object2:
-        console.log('Clicked object2')
-        break
-      case object3:
-        console.log('Clicked object3')
-        break
-    }
-  }
-})
-
-/**
  * Camera
  */
 // Base camera
@@ -100,7 +168,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   100,
 )
-camera.position.z = 3
+camera.position.set(-3, 3, 3)
 scene.add(camera)
 
 // Controls
@@ -113,50 +181,105 @@ controls.enableDamping = true
 const renderer = new THREE.WebGLRenderer({
   canvas: canvas,
 })
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+/**
+ * Utils
+ */
+const objectsToUpdate = []
+
+// Sphere
+const sphereGeometry = new THREE.SphereGeometry(1, 20, 20)
+const sphereMaterial = new THREE.MeshStandardMaterial({
+  metalness: 0.3,
+  roughness: 0.4,
+  envMap: environmentMapTexture,
+})
+
+const createSphere = (radius, position) => {
+  // Three.js mesh
+  const mesh = new THREE.Mesh(sphereGeometry, sphereMaterial)
+  mesh.scale.set(radius, radius, radius)
+  mesh.castShadow = true
+  mesh.position.copy(position)
+  scene.add(mesh)
+
+  const shape = new CANNON.Sphere(radius)
+  const body = new CANNON.Body({
+    shape,
+    mass: 1,
+    material: defaultMaterial,
+  })
+  body.position.copy(position)
+  body.addEventListener('collide', playHitSound)
+  world.addBody(body)
+
+  // Save in objectsToUpdate
+  objectsToUpdate.push({mesh, body})
+}
+
+createSphere(0.5, {x: 0, y: 3, z: 0})
+
+// Box
+const boxGeometry = new THREE.BoxGeometry(1, 1, 1)
+const boxMaterial = new THREE.MeshStandardMaterial({
+  metalness: 0.3,
+  roughness: 0.4,
+  envMap: environmentMapTexture,
+})
+
+const createBox = (width, height, depth, position) => {
+  // Three.js mesh
+  const mesh = new THREE.Mesh(boxGeometry, boxMaterial)
+  mesh.scale.set(width, height, depth)
+  mesh.castShadow = true
+  mesh.position.copy(position)
+  scene.add(mesh)
+
+  const shape = new CANNON.Box(
+    new CANNON.Vec3(width * 0.5, height * 0.5, depth * 0.5),
+  )
+  const body = new CANNON.Body({
+    shape,
+    mass: 1,
+    material: defaultMaterial,
+  })
+  body.position.copy(position)
+  body.addEventListener('collide', playHitSound)
+  world.addBody(body)
+
+  // Save in objectsToUpdate
+  objectsToUpdate.push({mesh, body})
+}
+
+createSphere(0.5, {x: 0, y: 3, z: 0})
 
 /**
  * Animate
  */
 const clock = new THREE.Clock()
-
-let currentIntersect = null
+let oldElapsedTime = 0
 
 const tick = () => {
   const elapsedTime = clock.getElapsedTime()
+  const deltaTime = elapsedTime - oldElapsedTime
+  oldElapsedTime = elapsedTime
 
-  // Animate Objects
-  object1.position.y = Math.sin(elapsedTime * 0.3) * 1.5
-  object2.position.y = Math.sin(elapsedTime * 0.8) * 1.5
-  object3.position.y = Math.sin(elapsedTime * 1.4) * 1.5
+  // Update physics world
 
-  // Cast a ray
-  raycaster.setFromCamera(mouse, camera)
+  world.step(1 / 60, deltaTime, 3)
 
-  const objectToTest = [object1, object2, object3]
-  const intersects = raycaster.intersectObjects(objectToTest)
-
-  objectToTest.forEach((object) => object.material.color.set('#ff0000'))
-
-  intersects.forEach((intersect) =>
-    intersect.object.material.color.set('#0000ff'),
-  )
-
-  if (intersects.length) {
-    if (currentIntersect === null) {
-      console.log('mouse enter')
-    }
-    currentIntersect = intersects[0]
-  } else {
-    if (currentIntersect) {
-      console.log('mouse leave')
-    }
-    currentIntersect = null
-  }
+  objectsToUpdate.forEach((object) => {
+    object.mesh.position.copy(object.body.position)
+    object.mesh.quaternion.copy(object.body.quaternion)
+  })
 
   // Update controls
   controls.update()
+
   // Render
   renderer.render(scene, camera)
 
