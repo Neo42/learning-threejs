@@ -1,16 +1,25 @@
 import './style.css'
 import * as THREE from 'three'
-import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
-import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader'
 import * as dat from 'dat.gui'
+import gsap from 'gsap'
+
+/**
+ * Debug
+ */
+const gui = new dat.GUI()
+
+const parameters = {
+  materialColor: '#ffeded',
+}
+
+gui.addColor(parameters, 'materialColor').onChange(() => {
+  material.color.set(parameters.materialColor)
+  particlesMaterial.color.set(parameters.materialColor)
+})
 
 /**
  * Base
  */
-// Debug
-const gui = new dat.GUI()
-const debugObject = {}
-
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
 
@@ -18,100 +27,66 @@ const canvas = document.querySelector('canvas.webgl')
 const scene = new THREE.Scene()
 
 /**
- * loaders
+ * Objects
  */
-const updateAllMaterials = () => {
-  scene.traverse((child) => {
-    if (
-      child instanceof THREE.Mesh &&
-      child.material instanceof THREE.MeshStandardMaterial
-    ) {
-      // Substituded with scene.environment = environmentMap
-      child.material.envMap = environmentMap
-      child.material.envMapIntensity = debugObject.envMapIntensity
-      child.castShadow = true
-      child.receiveShadow = true
-    }
-  })
+const textureLoader = new THREE.TextureLoader()
+const gradientTexture = textureLoader.load('textures/gradients/3.jpg')
+gradientTexture.magFilter = THREE.NearestFilter
+
+const material = new THREE.MeshToonMaterial({
+  color: parameters.materialColor,
+  gradientMap: gradientTexture,
+})
+
+const mesh1 = new THREE.Mesh(new THREE.TorusGeometry(1, 0.4, 16, 60), material)
+const mesh2 = new THREE.Mesh(new THREE.ConeGeometry(1, 2, 32), material)
+const mesh3 = new THREE.Mesh(
+  new THREE.TorusKnotGeometry(0.8, 0.35, 100, 16),
+  material,
+)
+
+const objectDistance = 4
+mesh1.position.y = -objectDistance * 0
+mesh2.position.y = -objectDistance * 1
+mesh3.position.y = -objectDistance * 2
+
+mesh1.position.x = 2
+mesh2.position.x = -2
+mesh3.position.x = 2
+
+scene.add(mesh1, mesh2, mesh3)
+
+const sectionMeshes = [mesh1, mesh2, mesh3]
+
+// Particles
+const particlesCount = 200
+const positions = new Float32Array(particlesCount * 3)
+for (let i = 0; i < particlesCount; i++) {
+  positions[i * 3 + 0] = (Math.random() - 0.5) * 10
+  positions[i * 3 + 1] =
+    objectDistance * 0.5 - Math.random() * objectDistance * sectionMeshes.length
+  positions[i * 3 + 2] = (Math.random() - 0.5) * 10
 }
 
-const cubeTextureLoader = new THREE.CubeTextureLoader()
-const environmentMap = cubeTextureLoader.load([
-  '/textures/environmentMaps/0/px.jpg',
-  '/textures/environmentMaps/0/nx.jpg',
-  '/textures/environmentMaps/0/py.jpg',
-  '/textures/environmentMaps/0/ny.jpg',
-  '/textures/environmentMaps/0/pz.jpg',
-  '/textures/environmentMaps/0/nz.jpg',
-])
-environmentMap.encoding = THREE.sRGBEncoding
-
-const gltfLoader = new GLTFLoader()
-gltfLoader.load('/models/FlightHelmet/glTF/FlightHelmet.gltf', (gltf) => {
-  gltf.scene.scale.set(10, 10, 10)
-  gltf.scene.position.set(0, -4, 0)
-  gltf.scene.rotation.y = Math.PI * 0.5
-  scene.add(gltf.scene)
-
-  gui
-    .add(gltf.scene.rotation, 'y')
-    .min(-Math.PI)
-    .max(Math.PI)
-    .step(0.001)
-    .name('rotation')
-
-  updateAllMaterials()
-})
-scene.background = environmentMap
-// scene.environment = environmentMap
-
-debugObject.envMapIntensity = 5
-gui
-  .add(debugObject, 'envMapIntensity')
-  .min(0)
-  .max(10)
-  .step(0.001)
-  .onChange(updateAllMaterials)
-
-/**
- * Lights
- */
-const directionalLight = new THREE.DirectionalLight('#ffffff', 3)
-directionalLight.position.set(0.25, 3, -2.25)
-directionalLight.castShadow = true
-directionalLight.shadow.camera.far = 15
-directionalLight.shadow.mapSize.set(1024, 1024)
-scene.add(directionalLight)
-
-const directionalLightCameraHelper = new THREE.CameraHelper(
-  directionalLight.shadow.camera,
+const particlesGeometry = new THREE.BufferGeometry()
+particlesGeometry.setAttribute(
+  'position',
+  new THREE.BufferAttribute(positions, 3),
 )
-scene.add(directionalLightCameraHelper)
 
-gui
-  .add(directionalLight, 'intensity')
-  .min(0)
-  .max(10)
-  .step(0.001)
-  .name('lightIntensity')
-gui
-  .add(directionalLight.position, 'x')
-  .min(-5)
-  .max(5)
-  .step(0.001)
-  .name('lightX')
-gui
-  .add(directionalLight.position, 'y')
-  .min(-5)
-  .max(5)
-  .step(0.001)
-  .name('lightY')
-gui
-  .add(directionalLight.position, 'z')
-  .min(-5)
-  .max(5)
-  .step(0.001)
-  .name('lightZ')
+const particlesMaterial = new THREE.PointsMaterial({
+  color: parameters.materialColor,
+  sizeAttenuation: true,
+  size: 0.03,
+})
+
+const particles = new THREE.Points(particlesGeometry, particlesMaterial)
+scene.add(particles)
+
+// Lights
+const directionalLight = new THREE.DirectionalLight('#ffffff', 1)
+directionalLight.position.set(1, 1, 0)
+scene.add(directionalLight)
 
 /**
  * Sizes
@@ -138,56 +113,82 @@ window.addEventListener('resize', () => {
 /**
  * Camera
  */
+// Camera Group
+const cameraGroup = new THREE.Group()
+scene.add(cameraGroup)
+
 // Base camera
 const camera = new THREE.PerspectiveCamera(
-  75,
+  35,
   sizes.width / sizes.height,
   0.1,
   100,
 )
-camera.position.set(4, 1, -4)
-scene.add(camera)
-
-// Controls
-const controls = new OrbitControls(camera, canvas)
-controls.enableDamping = true
+camera.position.z = 6
+cameraGroup.add(camera)
 
 /**
  * Renderer
  */
 const renderer = new THREE.WebGLRenderer({
   canvas,
-  antialias: true,
+  alpha: true,
 })
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-renderer.physicallyCorrectLights = true
-renderer.outputEncoding = THREE.sRGBEncoding
-renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 3
-renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
-gui
-  .add(renderer, 'toneMapping', {
-    No: THREE.NoToneMapping,
-    Linear: THREE.LinearToneMapping,
-    Reinhard: THREE.ReinhardToneMapping,
-    Cineon: THREE.CineonToneMapping,
-    ACESFilmic: THREE.ACESFilmicToneMapping,
-  })
-  .onFinishChange(() => {
-    renderer.toneMapping = Number(renderer.toneMapping)
-    updateAllMaterials()
-  })
-gui.add(renderer, 'toneMappingExposure').min(0).max(10).step(0.001)
+// Scroll
+let scrollY = window.scrollY
+let currentSection = 0
+
+window.addEventListener('scroll', () => {
+  scrollY = window.scrollY
+  const newSection = Math.round(scrollY / sizes.height)
+
+  if (newSection !== currentSection) {
+    currentSection = newSection
+    gsap.to(sectionMeshes[currentSection].rotation, {
+      duration: 1.5,
+      ease: 'power2.inOut',
+      x: '+=6',
+      y: '+=3',
+    })
+  }
+})
+
+// Cursor
+const cursor = {}
+cursor.x = 0
+cursor.y = 0
+
+window.addEventListener('mousemove', (e) => {
+  cursor.x = e.clientX / sizes.width - 0.5
+  cursor.y = e.clientY / sizes.height - 0.5
+})
 
 /**
  * Animate
  */
+const clock = new THREE.Clock()
+let previousTime = 0
+
 const tick = () => {
-  // Update controls
-  controls.update()
+  const elapsedTime = clock.getElapsedTime()
+  const deltaTime = elapsedTime - previousTime
+  previousTime = elapsedTime
+
+  camera.position.y = (-scrollY / sizes.height) * objectDistance
+
+  const parallaxX = cursor.x * 0.5
+  const parallaxY = -cursor.y * 0.5
+  cameraGroup.position.x += (parallaxX - cameraGroup.position.x) * deltaTime * 5
+  cameraGroup.position.y += (parallaxY - cameraGroup.position.y) * deltaTime * 5
+
+  // Animate meshes
+  sectionMeshes.forEach((mesh) => {
+    mesh.rotation.x += deltaTime * 0.1
+    mesh.rotation.y += deltaTime * 0.12
+  })
 
   // Render
   renderer.render(scene, camera)
