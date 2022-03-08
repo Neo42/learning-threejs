@@ -1,25 +1,16 @@
 import './style.css'
 import * as THREE from 'three'
+import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import * as dat from 'dat.gui'
-import gsap from 'gsap'
-
-/**
- * Debug
- */
-const gui = new dat.GUI()
-
-const parameters = {
-  materialColor: '#ffeded',
-}
-
-gui.addColor(parameters, 'materialColor').onChange(() => {
-  material.color.set(parameters.materialColor)
-  particlesMaterial.color.set(parameters.materialColor)
-})
+import testVertexShader from './shaders/test/vertex.glsl'
+import testFragmentShader from './shaders/test/fragment.glsl'
 
 /**
  * Base
  */
+// Debug
+const gui = new dat.GUI()
+
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
 
@@ -27,66 +18,67 @@ const canvas = document.querySelector('canvas.webgl')
 const scene = new THREE.Scene()
 
 /**
- * Objects
+ * Textures
  */
 const textureLoader = new THREE.TextureLoader()
-const gradientTexture = textureLoader.load('textures/gradients/3.jpg')
-gradientTexture.magFilter = THREE.NearestFilter
+const flagTexture = textureLoader.load('textures/flag-french.jpg')
 
-const material = new THREE.MeshToonMaterial({
-  color: parameters.materialColor,
-  gradientMap: gradientTexture,
-})
+/**
+ * Test mesh
+ */
+// Geometry
+const geometry = new THREE.PlaneGeometry(1, 1, 32, 32)
 
-const mesh1 = new THREE.Mesh(new THREE.TorusGeometry(1, 0.4, 16, 60), material)
-const mesh2 = new THREE.Mesh(new THREE.ConeGeometry(1, 2, 32), material)
-const mesh3 = new THREE.Mesh(
-  new THREE.TorusKnotGeometry(0.8, 0.35, 100, 16),
-  material,
-)
+const count = geometry.attributes.position.count
+const randoms = new Float32Array(count)
 
-const objectDistance = 4
-mesh1.position.y = -objectDistance * 0
-mesh2.position.y = -objectDistance * 1
-mesh3.position.y = -objectDistance * 2
-
-mesh1.position.x = 2
-mesh2.position.x = -2
-mesh3.position.x = 2
-
-scene.add(mesh1, mesh2, mesh3)
-
-const sectionMeshes = [mesh1, mesh2, mesh3]
-
-// Particles
-const particlesCount = 200
-const positions = new Float32Array(particlesCount * 3)
-for (let i = 0; i < particlesCount; i++) {
-  positions[i * 3 + 0] = (Math.random() - 0.5) * 10
-  positions[i * 3 + 1] =
-    objectDistance * 0.5 - Math.random() * objectDistance * sectionMeshes.length
-  positions[i * 3 + 2] = (Math.random() - 0.5) * 10
+for (let i = 0; i < count; i++) {
+  randoms[i] = Math.random()
 }
 
-const particlesGeometry = new THREE.BufferGeometry()
-particlesGeometry.setAttribute(
-  'position',
-  new THREE.BufferAttribute(positions, 3),
-)
+geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1))
 
-const particlesMaterial = new THREE.PointsMaterial({
-  color: parameters.materialColor,
-  sizeAttenuation: true,
-  size: 0.03,
+// Material
+// const material = new THREE.RawShaderMaterial({
+//   vertexShader: testVertexShader,
+//   fragmentShader: testFragmentShader,
+//   side: THREE.DoubleSide,
+//   uniforms: {
+//     uFrequency: {value: new THREE.Vector2(10, 5)},
+//     uTime: {value: 0},
+//     uColor: {value: new THREE.Color('orange')},
+//     uTexture: {value: flagTexture},
+//   },
+// })
+const material = new THREE.ShaderMaterial({
+  vertexShader: testVertexShader,
+  fragmentShader: testFragmentShader,
+  side: THREE.DoubleSide,
+  uniforms: {
+    uFrequency: {value: new THREE.Vector2(10, 5)},
+    uTime: {value: 0},
+    uColor: {value: new THREE.Color('orange')},
+    uTexture: {value: flagTexture},
+  },
 })
 
-const particles = new THREE.Points(particlesGeometry, particlesMaterial)
-scene.add(particles)
+gui
+  .add(material.uniforms.uFrequency.value, 'x')
+  .min(0)
+  .max(20)
+  .step(0.01)
+  .name('frequencyX')
+gui
+  .add(material.uniforms.uFrequency.value, 'y')
+  .min(0)
+  .max(20)
+  .step(0.01)
+  .name('frequencyY')
 
-// Lights
-const directionalLight = new THREE.DirectionalLight('#ffffff', 1)
-directionalLight.position.set(1, 1, 0)
-scene.add(directionalLight)
+// Mesh
+const mesh = new THREE.Mesh(geometry, material)
+mesh.scale.y = 2 / 3
+scene.add(mesh)
 
 /**
  * Sizes
@@ -113,82 +105,42 @@ window.addEventListener('resize', () => {
 /**
  * Camera
  */
-// Camera Group
-const cameraGroup = new THREE.Group()
-scene.add(cameraGroup)
-
 // Base camera
 const camera = new THREE.PerspectiveCamera(
-  35,
+  75,
   sizes.width / sizes.height,
   0.1,
   100,
 )
-camera.position.z = 6
-cameraGroup.add(camera)
+camera.position.set(0.25, -0.25, 1)
+scene.add(camera)
+
+// Controls
+const controls = new OrbitControls(camera, canvas)
+controls.enableDamping = true
 
 /**
  * Renderer
  */
 const renderer = new THREE.WebGLRenderer({
-  canvas,
-  alpha: true,
+  canvas: canvas,
 })
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-
-// Scroll
-let scrollY = window.scrollY
-let currentSection = 0
-
-window.addEventListener('scroll', () => {
-  scrollY = window.scrollY
-  const newSection = Math.round(scrollY / sizes.height)
-
-  if (newSection !== currentSection) {
-    currentSection = newSection
-    gsap.to(sectionMeshes[currentSection].rotation, {
-      duration: 1.5,
-      ease: 'power2.inOut',
-      x: '+=6',
-      y: '+=3',
-    })
-  }
-})
-
-// Cursor
-const cursor = {}
-cursor.x = 0
-cursor.y = 0
-
-window.addEventListener('mousemove', (e) => {
-  cursor.x = e.clientX / sizes.width - 0.5
-  cursor.y = e.clientY / sizes.height - 0.5
-})
 
 /**
  * Animate
  */
 const clock = new THREE.Clock()
-let previousTime = 0
 
 const tick = () => {
   const elapsedTime = clock.getElapsedTime()
-  const deltaTime = elapsedTime - previousTime
-  previousTime = elapsedTime
 
-  camera.position.y = (-scrollY / sizes.height) * objectDistance
+  // Update material
+  material.uniforms.uTime.value = elapsedTime
 
-  const parallaxX = cursor.x * 0.5
-  const parallaxY = -cursor.y * 0.5
-  cameraGroup.position.x += (parallaxX - cameraGroup.position.x) * deltaTime * 5
-  cameraGroup.position.y += (parallaxY - cameraGroup.position.y) * deltaTime * 5
-
-  // Animate meshes
-  sectionMeshes.forEach((mesh) => {
-    mesh.rotation.x += deltaTime * 0.1
-    mesh.rotation.y += deltaTime * 0.12
-  })
+  // Update controls
+  controls.update()
 
   // Render
   renderer.render(scene, camera)

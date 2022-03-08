@@ -66,6 +66,19 @@ module.exports = {
           },
         ],
       },
+
+      // Shaders
+      {
+        test: /\.(glsl|vs|fs|vert|frag)$/,
+        // for webpack 5
+        type: 'asset/source',
+        generator: {
+          filename: 'assets/images/[hash][ext]',
+        },
+        // for webpack 4
+        // exclude: /node_modules/,
+        // use: ['raw-loader'],
+      },
     ],
   },
 }
