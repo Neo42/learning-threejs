@@ -1,15 +1,22 @@
 import './style.css'
+import * as dat from 'dat.gui'
 import * as THREE from 'three'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
-import * as dat from 'dat.gui'
-import galaxyVertexShader from './shaders/galaxy/vertex.glsl'
-import galaxyFragmentShader from './shaders/galaxy/fragment.glsl'
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
+import {DRACOLoader} from 'three/examples/jsm/loaders/DRACOLoader.js'
+import firefliesVertexShader from './shaders/fireflies/vertex.glsl'
+import firefliesFragmentShader from './shaders/fireflies/fragment.glsl'
+import portalVertexShader from './shaders/portal/vertex.glsl'
+import portalFragmentShader from './shaders/portal/fragment.glsl'
 
 /**
  * Base
  */
 // Debug
-const gui = new dat.GUI()
+const debugObject = {}
+const gui = new dat.GUI({
+  width: 400,
+})
 
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
@@ -18,147 +25,131 @@ const canvas = document.querySelector('canvas.webgl')
 const scene = new THREE.Scene()
 
 /**
- * Galaxy
+ * Loaders
  */
-const parameters = {}
-parameters.count = 200000
-parameters.size = 0.005
-parameters.radius = 5
-parameters.branches = 3
-parameters.spin = 1
-parameters.randomness = 0.5
-parameters.randomnessPower = 3
-parameters.insideColor = '#ff6030'
-parameters.outsideColor = '#1b3984'
+// Texture loader
+const textureLoader = new THREE.TextureLoader()
 
-let geometry = null
-let material = null
-let points = null
+// Draco loader
+const dracoLoader = new DRACOLoader()
+dracoLoader.setDecoderPath('draco/')
 
-const generateGalaxy = () => {
-  if (points !== null) {
-    geometry.dispose()
-    material.dispose()
-    scene.remove(points)
-  }
+// GLTF loader
+const gltfLoader = new GLTFLoader()
+gltfLoader.setDRACOLoader(dracoLoader)
 
-  /**
-   * Geometry
-   */
-  geometry = new THREE.BufferGeometry()
+/**
+ * Textures
+ */
+const bakedTexture = textureLoader.load('baked.jpg')
+bakedTexture.flipY = false
+bakedTexture.encoding = THREE.sRGBEncoding
 
-  const positions = new Float32Array(parameters.count * 3)
-  const colors = new Float32Array(parameters.count * 3)
-  const scales = new Float32Array(parameters.count * 1)
-  const randomness = new Float32Array(parameters.count * 3)
+/**
+ * Materials
+ */
+// Baked
+const bakedMaterial = new THREE.MeshBasicMaterial({map: bakedTexture})
 
-  const insideColor = new THREE.Color(parameters.insideColor)
-  const outsideColor = new THREE.Color(parameters.outsideColor)
+debugObject.portalColorStart = '#5EDAFC'
+debugObject.portalColorEnd = '#8EEFF7'
 
-  for (let i = 0; i < parameters.count; i++) {
-    const i3 = i * 3
+gui.addColor(debugObject, 'portalColorStart').onChange(() => {
+  portalLightMaterial.uniforms.uColorStart.value.set(
+    debugObject.portalColorStart,
+  )
+})
+gui.addColor(debugObject, 'portalColorEnd').onChange(() => {
+  portalLightMaterial.uniforms.uColorEnd.value.set(debugObject.portalColorEnd)
+})
 
-    // Position
-    const radius = Math.random() * parameters.radius
+// Pole light material
+const portalLightMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: {value: 0},
+    uColorStart: {value: new THREE.Color(debugObject.portalColorStart)},
+    uColorEnd: {value: new THREE.Color(debugObject.portalColorEnd)},
+  },
+  vertexShader: portalVertexShader,
+  fragmentShader: portalFragmentShader,
+})
 
-    const branchAngle =
-      ((i % parameters.branches) / parameters.branches) * Math.PI * 2
+const poleLightMaterial = new THREE.MeshBasicMaterial({color: 0xee9911})
 
-    positions[i3] = Math.cos(branchAngle) * radius
-    positions[i3 + 1] = 0
-    positions[i3 + 2] = Math.sin(branchAngle) * radius
+/**
+ * Model
+ */
+gltfLoader.load('portal.glb', (gltf) => {
+  const bakedMesh = gltf.scene.children.find((child) => child.name === 'baked')
 
-    const randomX =
-      Math.pow(Math.random(), parameters.randomnessPower) *
-      (Math.random() < 0.5 ? 1 : -1) *
-      parameters.randomness *
-      radius
-    const randomY =
-      Math.pow(Math.random(), parameters.randomnessPower) *
-      (Math.random() < 0.5 ? 1 : -1) *
-      parameters.randomness *
-      radius
-    const randomZ =
-      Math.pow(Math.random(), parameters.randomnessPower) *
-      (Math.random() < 0.5 ? 1 : -1) *
-      parameters.randomness *
-      radius
+  const poleLightAMesh = gltf.scene.children.find(
+    (child) => child.name === 'poleLightA',
+  )
+  const poleLightBMesh = gltf.scene.children.find(
+    (child) => child.name === 'poleLightB',
+  )
+  const portalLightMesh = gltf.scene.children.find(
+    (child) => child.name === 'portalLight',
+  )
 
-    randomness[i3 + 0] = randomX
-    randomness[i3 + 1] = randomY
-    randomness[i3 + 2] = randomZ
+  bakedMesh.material = bakedMaterial
+  portalLightMesh.material = portalLightMaterial
+  poleLightAMesh.material = poleLightMaterial
+  poleLightBMesh.material = poleLightMaterial
 
-    // Color
-    const mixedColor = insideColor.clone()
-    mixedColor.lerp(outsideColor, radius / parameters.radius)
+  scene.add(gltf.scene)
+})
 
-    colors[i3] = mixedColor.r
-    colors[i3 + 1] = mixedColor.g
-    colors[i3 + 2] = mixedColor.b
+/**
+ * Fireflies
+ */
+// Geometry
+const firefliesGeometry = new THREE.BufferGeometry()
+const firefliesCount = 30
+const positionArray = new Float32Array(firefliesCount * 3)
+const scaleArray = new Float32Array(firefliesCount)
 
-    // Scale
-    scales[i] = Math.random()
-  }
+for (let i = 0; i < firefliesCount; i++) {
+  positionArray[i * 3 + 0] = (Math.random() - 0.5) * 4
+  positionArray[i * 3 + 1] = Math.random() * 1.5
+  positionArray[i * 3 + 2] = (Math.random() - 0.5) * 4
 
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-  geometry.setAttribute('aScale', new THREE.BufferAttribute(scales, 1))
-  geometry.setAttribute('aRandomness', new THREE.BufferAttribute(randomness, 3))
-
-  /**
-   * Material
-   */
-  material = new THREE.ShaderMaterial({
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    vertexColors: true,
-    vertexShader: galaxyVertexShader,
-    fragmentShader: galaxyFragmentShader,
-    uniforms: {
-      uTime: {value: 0},
-      uSize: {value: 30 * renderer.getPixelRatio()},
-    },
-  })
-
-  /**
-   * Points
-   */
-  points = new THREE.Points(geometry, material)
-  scene.add(points)
+  scaleArray[i] = Math.random()
 }
 
+firefliesGeometry.setAttribute(
+  'position',
+  new THREE.BufferAttribute(positionArray, 3),
+)
+firefliesGeometry.setAttribute(
+  'aScale',
+  new THREE.BufferAttribute(scaleArray, 1),
+)
+
+// Material
+const firefliesMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: {value: 0},
+    uPixelRatio: {value: Math.min(window.devicePixelRatio, 2)},
+    uSize: {value: 250},
+  },
+  vertexShader: firefliesVertexShader,
+  fragmentShader: firefliesFragmentShader,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+})
+
 gui
-  .add(parameters, 'count')
-  .min(100)
-  .max(1000000)
-  .step(100)
-  .onFinishChange(generateGalaxy)
-gui
-  .add(parameters, 'radius')
-  .min(0.01)
-  .max(20)
-  .step(0.01)
-  .onFinishChange(generateGalaxy)
-gui
-  .add(parameters, 'branches')
-  .min(2)
-  .max(20)
-  .step(1)
-  .onFinishChange(generateGalaxy)
-gui
-  .add(parameters, 'randomness')
+  .add(firefliesMaterial.uniforms.uSize, 'value')
   .min(0)
-  .max(2)
-  .step(0.001)
-  .onFinishChange(generateGalaxy)
-gui
-  .add(parameters, 'randomnessPower')
-  .min(1)
-  .max(10)
-  .step(0.001)
-  .onFinishChange(generateGalaxy)
-gui.addColor(parameters, 'insideColor').onFinishChange(generateGalaxy)
-gui.addColor(parameters, 'outsideColor').onFinishChange(generateGalaxy)
+  .max(500)
+  .step(1)
+  .name('size')
+
+// Points
+const fireflies = new THREE.Points(firefliesGeometry, firefliesMaterial)
+scene.add(fireflies)
 
 /**
  * Sizes
@@ -180,6 +171,12 @@ window.addEventListener('resize', () => {
   // Update renderer
   renderer.setSize(sizes.width, sizes.height)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+  // Update fireflies
+  firefliesMaterial.uniforms.uPixelRatio.value = Math.min(
+    window.devicePixelRatio,
+    2,
+  )
 })
 
 /**
@@ -187,14 +184,14 @@ window.addEventListener('resize', () => {
  */
 // Base camera
 const camera = new THREE.PerspectiveCamera(
-  75,
+  45,
   sizes.width / sizes.height,
   0.1,
   100,
 )
-camera.position.x = 3
-camera.position.y = 3
-camera.position.z = 3
+camera.position.x = 6.5
+camera.position.y = 6.5
+camera.position.z = 6.5
 scene.add(camera)
 
 // Controls
@@ -206,12 +203,17 @@ controls.enableDamping = true
  */
 const renderer = new THREE.WebGLRenderer({
   canvas: canvas,
+  antialias: true,
 })
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+renderer.outputEncoding = THREE.sRGBEncoding
 
-generateGalaxy()
-
+debugObject.clearColor = '#201919'
+renderer.setClearColor(debugObject.clearColor)
+gui.addColor(debugObject, 'clearColor').onChange(() => {
+  renderer.setClearColor(debugObject.clearColor)
+})
 /**
  * Animate
  */
@@ -220,8 +222,9 @@ const clock = new THREE.Clock()
 const tick = () => {
   const elapsedTime = clock.getElapsedTime()
 
-  // Update material
-  material.uniforms.uTime.value = elapsedTime
+  // Update materials
+  portalLightMaterial.uniforms.uTime.value = elapsedTime
+  firefliesMaterial.uniforms.uTime.value = elapsedTime
 
   // Update controls
   controls.update()
